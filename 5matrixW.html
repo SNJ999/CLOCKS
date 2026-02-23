@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Matrix Hyper-Rain Compact Clock</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            touch-action: none; 
+        }
+        canvas { display: block; }
+        .ui-hint {
+            position: fixed;
+            bottom: 20px;
+            color: rgba(0, 255, 65, 0.2);
+            font-family: monospace;
+            font-size: 8px;
+            letter-spacing: 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+    <div class="ui-hint">SINGULARITY ACTIVE</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let w, h;
+        const fontSize = 14; 
+        let columns = [];
+        const chars = "ｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*/=%\"'#&_(),.;:?!\\|{}<>[]^~";
+        
+        let target = { x: 0, y: 0 };
+        let mouse = { x: 0, y: 0 };
+
+        function init() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+            target.x = mouse.x = w / 2;
+            target.y = mouse.y = h / 2;
+            
+            // Максимальная плотность: шаг 7 пикселей
+            const colCount = Math.floor(w / 7); 
+            columns = [];
+            for (let i = 0; i < colCount; i++) {
+                columns.push({
+                    x: i * 7,
+                    y: Math.random() * h,
+                    speed: 2 + Math.random() * 8,
+                    length: Math.floor(Math.random() * 20) + 10 // Длинные шлейфы
+                });
+            }
+        }
+
+        const updatePos = (e) => {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            mouse.x = x;
+            mouse.y = y;
+        };
+
+        window.addEventListener('mousemove', updatePos);
+        window.addEventListener('touchstart', updatePos);
+        window.addEventListener('touchmove', updatePos);
+
+        function draw() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0, 0, w, h);
+
+            target.x += (mouse.x - target.x) * 0.12;
+            target.y += (mouse.y - target.y) * 0.12;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+            ctx.font = fontSize + "px monospace";
+
+            columns.forEach(col => {
+                for (let j = 0; j < col.length; j++) {
+                    const charY = col.y - (j * fontSize);
+                    if (charY < -fontSize || charY > h + fontSize) continue;
+
+                    const dx = col.x - target.x;
+                    const dy = charY - target.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    const maxDist = 250;
+                    let pull = 0;
+                    let offsetX = 0;
+
+                    if (dist < maxDist) {
+                        pull = (maxDist - dist) / maxDist;
+                        offsetX = -dx * pull * 0.8; 
+                    }
+
+                    const char = chars[Math.floor(Math.random() * chars.length)];
+                    
+                    if (j === 0) {
+                        // "Голова" капли
+                        ctx.fillStyle = dist < 80 ? "#fff" : "#0f0";
+                    } else {
+                        // "Хвост" капли
+                        const alpha = (1 - (j / col.length)) * (dist < 120 ? 0.9 : 0.35);
+                        ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`;
+                    }
+
+                    ctx.fillText(char, col.x + offsetX, charY);
+                }
+
+                col.y += col.speed;
+                if (col.y > h + (col.length * fontSize)) {
+                    col.y = -fontSize;
+                    col.speed = 2 + Math.random() * 8;
+                }
+            });
+
+            // --- КОМПАКТНЫЕ ЧАСЫ ---
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            // Тень для отделения от густого фона
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#000";
+            
+            // Основной текст (уменьшен до 40px)
+            ctx.font = "bold 40px Courier New";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.fillText(timeStr, target.x, target.y);
+            
+            // Легкий контур для четкости
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.5)";
+            ctx.strokeText(timeStr, target.x, target.y);
+
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+        draw();
+    </script>
+</body>
+</html>

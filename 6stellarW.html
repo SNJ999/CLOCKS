@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stellar Constellation Clock</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; min-height: 100vh; touch-action: none; cursor: crosshair; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+
+<canvas id="starCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('starCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let w, h, dpr;
+    let stars = [];
+    let isPressed = false;
+    let lightPower = 0;
+
+    // Паттерны цифр 5x7 для реализма
+    const font = {
+        '0': [31, 33, 35, 37, 41, 49, 31],
+        '1': [4, 12, 4, 4, 4, 4, 14],
+        '2': [30, 33, 1, 2, 4, 8, 63],
+        '3': [30, 33, 1, 14, 1, 33, 30],
+        '4': [2, 6, 10, 18, 63, 2, 2],
+        '5': [63, 32, 62, 1, 1, 33, 30],
+        '6': [14, 16, 32, 62, 33, 33, 30],
+        '7': [63, 1, 2, 4, 8, 16, 32],
+        '8': [30, 33, 33, 30, 33, 33, 30],
+        '9': [30, 33, 33, 31, 1, 2, 28],
+        ':': [0, 12, 12, 0, 12, 12, 0]
+    };
+
+    function setup() {
+        dpr = window.devicePixelRatio || 1;
+        w = window.innerWidth;
+        h = window.innerHeight;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        
+        stars = [];
+        // Создаем 1500 звезд для плотности
+        for (let i = 0; i < 1500; i++) {
+            stars.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                targetX: 0,
+                targetY: 0,
+                z: Math.random() * w,
+                size: Math.random() * 1.5,
+                inDigit: false
+            });
+        }
+    }
+
+    const activate = () => isPressed = true;
+    const deactivate = () => isPressed = false;
+    window.addEventListener('mousedown', activate);
+    window.addEventListener('mouseup', deactivate);
+    window.addEventListener('touchstart', activate);
+    window.addEventListener('touchend', deactivate);
+
+    function getTimePoints() {
+        const now = new Date();
+        const str = now.toTimeString().split(' ')[0];
+        const points = [];
+        const spacing = 45;
+        const startX = (w - (str.length * spacing)) / 2;
+        const startY = h / 2 - 50;
+
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            const pattern = font[char];
+            if (!pattern) continue;
+
+            for (let row = 0; row < 7; row++) {
+                for (let col = 0; col < 6; col++) {
+                    if ((pattern[row] >> (5 - col)) & 1) {
+                        points.push({
+                            x: startX + i * spacing + col * 6,
+                            y: startY + row * 10
+                        });
+                    }
+                }
+            }
+        }
+        return points;
+    }
+
+    function draw() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+
+        const timePoints = getTimePoints();
+        lightPower += (isPressed ? 1 - lightPower : -lightPower) * 0.1;
+
+        stars.forEach((s, i) => {
+            // Если кнопка зажата, первые N звезд летят в точки цифр
+            if (isPressed && i < timePoints.length) {
+                const target = timePoints[i];
+                s.x += (target.x - s.x) * 0.15;
+                s.y += (target.y - s.y) * 0.15;
+                s.inDigit = true;
+            } else {
+                // Обычное движение звезд (полет сквозь космос)
+                s.z -= 2;
+                if (s.z <= 0) s.z = w;
+                
+                // Проекция полета
+                const p = 600 / (600 + s.z);
+                // Если звезда только что вышла из цифры, возвращаем её в поток
+                if (s.inDigit) {
+                    s.inDigit = false;
+                    s.x = Math.random() * w;
+                    s.y = Math.random() * h;
+                }
+            }
+
+            // Отрисовка
+            const opacity = s.inDigit ? 0.2 + lightPower * 0.8 : 0.1 + (1 - s.z / w) * 0.5;
+            const size = s.inDigit ? 1.5 : (1 - s.z / w) * 2;
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+            
+            // Свечение для звезд в цифрах
+            if (s.inDigit && isPressed) {
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = "white";
+            }
+
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', setup);
+    setup();
+    draw();
+</script>
+</body>
+</html>
